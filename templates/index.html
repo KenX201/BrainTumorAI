@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Tumor Detection</title>
+    <link rel="stylesheet" href="{{url_for('static', filename='css/style.css')}}">
+</head>
+<body>
+    <div class="logo">BT</div>
+    <h1>Brain Tumor Detection</h1>
+    <div class="spacer"></div>
+    <button id="theme-toggle" class="theme-toggle" type="button">☀️ Light</button> 
+
+    <div class="wrap">
+        <div class="card">
+            <h3>Uploard MRI</h3>
+            <div class="sub">Drag & drop or choose a PNG/JPG.</div>
+            <form id="upload-form" action="/predict" method="POST" enctype="multipart/form-data">
+                <div id="dropzone" class="dropzone">Drop image here or click "Choose file"</div>
+                <div class="input-row">
+                    <input type="file" id="file-input" name="file" accept="image/*" required>
+                    <button class="btn" id="submit-btn" type="submit" disabled>Predict</button>
+                </div>
+                <div id="loading" class="loading">
+                    <div class="spinner"></div> Uploading & Running
+                </div>
+                 {% if error %} <div style="color: var(--danger); margin-top: 10px">{{ error }}</div>{% endif %}
+            </form>
+
+            <div id="">
+
+            </div>
+
+
+        </div>
+    </div>
+</body>
+</html>
