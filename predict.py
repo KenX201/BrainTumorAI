@@ -6,10 +6,13 @@ from keras.preprocessing import image
 from keras import backend as K
 import tensorflow as tf
 
-model = load_model('brain_tumor_densenet_adam_model.h5')
+model_path = os.path.join(os.path.dirname(__file__), 'brain_tumor_densenet_adam_model.h5')
 class_names = ['No Tumor', 'Glioma', 'Meningioma', 'Pituitary']
 input_sizes = (224,224)
 results_dir = 'static/results'
+
+# Load model
+model = load_model(model_path, compile=False)
 
 def _ensure_3ch(img):
     # Load and preprocess image

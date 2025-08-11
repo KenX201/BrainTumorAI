@@ -13,6 +13,7 @@ os.makedirs(app.config['RESULTS_FOLDER'], exist_ok=True)
 
 @app.route('/',methods=['GET'])
 def index():
+    # Main page
     return render_template('index.html', config=app.config)
 
 @app.route('/predict', methods=['POST'])

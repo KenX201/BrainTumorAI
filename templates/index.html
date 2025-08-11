@@ -1,20 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brain Tumor Detection</title>
     <link rel="stylesheet" href="{{url_for('static', filename='css/style.css')}}">
 </head>
+
 <body>
     <div class="logo">BT</div>
     <h1>Brain Tumor Detection</h1>
     <div class="spacer"></div>
-    <button id="theme-toggle" class="theme-toggle" type="button">☀️ Light</button> 
+    <button id="theme-toggle" class="theme-toggle" type="button">☀️ Light</button>
 
-    <div class="wrap">
-        <div class="card">
-            <h3>Uploard MRI</h3>
+    <main class="wrap">
+        <!--Left: Uploader-->
+        <section class="card">
+            <h3>Upload MRI</h3>
             <div class="sub">Drag & drop or choose a PNG/JPG.</div>
             <form id="upload-form" action="/predict" method="POST" enctype="multipart/form-data">
                 <div id="dropzone" class="dropzone">Drop image here or click "Choose file"</div>
@@ -25,22 +28,45 @@
                 <div id="loading" class="loading">
                     <div class="spinner"></div> Uploading & Running
                 </div>
-                 {% if error %} <div style="color: var(--danger); margin-top: 10px">{{ error }}</div>{% endif %}
             </form>
 
             <div id="preview" class="preview">
                 <img id="preview-img" alt="preview">
             </div>
-        </div>
+        </section>
 
-        <div class="card">
-            <h3>Result Preview</h3>
-            <div class="sub">After you upload, a class prediction and tumor heatmap will appear here.</div>
-            <img class="result-img" src="{{url_for('static', filename='placeholder_result.png')}}" alt="placeholer">
-        </div>
-    </div>
+        <section class="card" id="result-card">
+                <h3>Result Preview</h3>
+                <div class="sub">After you upload, a class prediction and tumor heatmap will appear here.</div>
+                <img id="result-img" class="result-img" style="display: none" alt="heatmap result">
+
+                <div class="label" id="result-label" style="display: none"></div>
+
+                <div class="actions" id="download-actions" style="display: none">
+                    <a class="btn" id="download-heatmap" href="#" download>Download heatmaps</a>
+                    <a class="btn secondary" id="download-original" href="#" download>Download original</a>
+                </div>
+
+                <table class="table" id="probs-table" style="display: none" data-sortable>
+                    <thead>
+                    <tr>
+                        <th class="sort">Class</th>
+                        <th class="sort">Probability (%)</th>
+                    </tr>
+                    </thead>
+                    <tbody id="probs-body"></tbody>
+                </table>
+        </section>
+    </main>
+
+    <footer>
+        <div>© {{ 2025 }} Brain Tumor Demo • Model: {{ config.get('model_name') }} ({{ config.get('model_version') }})</div>
+         <div class="foot-sub">For research/demo purposes only. Not a medical device.</div>
+    </footer>
+
 
     <div id="toast" class="toast"></div>
     <script src="{{url_for('static', filename='js/app.js')}}"></script>
 </body>
+
 </html>
