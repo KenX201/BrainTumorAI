@@ -28,12 +28,19 @@
                  {% if error %} <div style="color: var(--danger); margin-top: 10px">{{ error }}</div>{% endif %}
             </form>
 
-            <div id="">
-
+            <div id="preview" class="preview">
+                <img id="preview-img" alt="preview">
             </div>
+        </div>
 
-
+        <div class="card">
+            <h3>Result Preview</h3>
+            <div class="sub">After you upload, a class prediction and tumor heatmap will appear here.</div>
+            <img class="result-img" src="{{url_for('static', filename='placeholder_result.png')}}" alt="placeholer">
         </div>
     </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="{{url_for('static', filename='js/app.js')}}"></script>
 </body>
 </html>

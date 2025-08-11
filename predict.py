@@ -4,7 +4,7 @@ import os, uuid
 from keras.models import load_model, Model
 from keras.preprocessing import image
 from keras import backend as K
-
+import tensorflow as tf
 
 model = load_model('brain_tumor_densenet_adam_model.h5')
 class_names = ['No Tumor', 'Glioma', 'Meningioma', 'Pituitary']
@@ -32,5 +32,19 @@ def _preprocess(img_path):
     return orig, arr
 
 def _last_conv_layer(m):
-    
+    # try to find the last Conv2D layer automatically
+    for layer in reversed(m.layers):
+        try:
+            if 'conv' in layer.name.lower() and len(layer.output_shape) == 4:
+                return layer.name
+        except Exception:
+            continue
+    return None
+
+def _grad_cam(model, img_array, target_index):
+    # Find last conv
+    last_conv_name = _last_conv_layer(model)
+    if not last_conv_name:
+        return None # cannot compute CAM
+
 
