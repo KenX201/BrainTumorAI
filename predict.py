@@ -46,5 +46,69 @@ def _grad_cam(model, img_array, target_index):
     last_conv_name = _last_conv_layer(model)
     if not last_conv_name:
         return None # cannot compute CAM
+    
+    conv_layer = model.get_layer(last_conv_name)
 
+    grad_model = Model([model.inputs], [conv_layer.output, model.output])
+    with tf.GradientTape() as tape:
+        conv_out, preds = grad_model(img_array)
+        loss = preds[:, target_index]
+
+    grads = tape.gradient(loss, conv_out)
+    pooled_grads = K.mean(grads, axis=(0, 1, 2))
+
+    conv_out = conv_out[0].numpy()
+    pooled = pooled_grads.numpy()
+    for c in range(conv_out.shape[-1]):
+        conv_out[:, :, c] *= pooled[c]
+
+    heatmap = np.mean(conv_out, axis=-1)
+    heatmap = np.maximum(heatmap, 0)
+    heatmap = heatmap / (np.max(heatmap) + 1e-8)
+    return heatmap
+
+def _overlay_heatmap_on(orig_bgr, heatmap):
+    h, w = orig_bgr.shape[:2]
+    cam = cv2.resize(heatmap, (w, h))
+    cam = np.uint8(255 * cam)
+    cam_color = cv2.applyColorMap(cam, cv2.COLORMAP_JET)  # heatmap
+    overlay = cv2.addWeighted(orig_bgr, 0.6, cam_color, 0.4, 0)
+    return overlay
+
+def run_inference(img_path):
+    orig_bgr, arr = _preprocess(img_path)
+
+    # forward pass
+    preds = model.predict(arr)[0]  # shape (num_classes,) or scalar
+    if preds.ndim == 0:
+        preds = np.array([1 - preds, preds])  # binary fallback
+    probs = preds / (np.sum(preds) + 1e-8)
+
+    idx = int(np.argmax(probs))
+    label = class_names[idx] if idx < len(class_names) else f"Class {idx}"
+
+    # Grad-CAM (best-effort; may be None if model has no conv layers)
+    heatmap = _grad_cam(model, arr, idx)
+    if heatmap is not None:
+        overlay = _overlay_heatmap_on(orig_bgr, heatmap)
+    else:
+        overlay = orig_bgr.copy()  # fallback: just show original
+
+    # save overlay
+    os.makedirs(results_dir, exist_ok=True)
+    out_name = f"overlay_{uuid.uuid4().hex[:8]}.png"
+    out_path = os.path.join(results_dir, out_name)
+    cv2.imwrite(out_path, overlay)
+
+    # pack probabilities into (label -> percent) dict
+    prob_dict = {}
+    for i, p in enumerate(probs):
+        name = class_names[i] if i < len(class_names) else f"Class {i}"
+        prob_dict[name] = round(float(p) * 100, 2)
+
+    return {
+        "label": label,
+        "overlay_path": out_path.replace("\\", "/"),
+        "probs": prob_dict
+    }
 
