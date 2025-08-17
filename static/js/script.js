@@ -2,18 +2,18 @@ const $ = (q, root = document) => root.querySelector(q);
 
 // ===== Theme handling =====
 function setTheme(theme) {
-    const root = document.documentElement;
+    var root = document.documentElement;
     if (theme === 'light') root.setAttribute('data-theme', 'light');
     else root.removeAttribute('data-theme');
     localStorage.setItem('bt_theme', theme);
-    const toggle = $('#theme-toggle');
+    var toggle = $('#theme-toggle');
     if (toggle) toggle.innerHTML = theme === 'light' ? '🌙 Dark' : '☀️ Light';
 }
 
 function initTheme() {
-    const saved = localStorage.getItem('bt_theme');
+    var saved = localStorage.getItem('bt_theme');
     setTheme(saved === 'light' ? 'light' : 'dark');
-    const toggle = $('#theme-toggle');
+    var toggle = $('#theme-toggle');
     if (toggle) {
         toggle.addEventListener('click', () => {
             const isLight = document.documentElement.getAttribute('data-theme') === 'light';
@@ -24,15 +24,15 @@ function initTheme() {
 
 // ===== Upload & SPA behavior =====
 function setupUploader() {
-    const form = $('#upload-form');
-    const fileInput = $('#file-input');
-    const dz = $('#dropzone');
-    const preview = $('#preview');
-    const previewImg = $('#preview-img');
-    const submitBtn = $('#submit-btn');
-    const loading = $('#loading');
+    var form = $('#upload-form');
+    var fileInput = $('#file-input');
+    var dz = $('#dropzone');
+    var preview = $('#preview');
+    var previewImg = $('#preview-img');
+    var submitBtn = $('#submit-btn');
+    var loading = $('#loading');
 
-    if (!form) return;
+    if (!form || !fileInput) return;
 
     // drag-over styling
     ['dragenter', 'dragover'].forEach(evt =>

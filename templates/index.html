@@ -59,13 +59,13 @@
     </main>
 
     <footer>
-        <div>© {{ 2025 }} Brain Tumor Demo • Model: {{ config.get('model_name') }} ({{ config.get('model_version') }})</div>
+        <div>© {{ 2025 }} Brain Tumor AI</div>
          <div class="foot-sub">For research/demo purposes only. Not a medical device.</div>
     </footer>
 
 
     <div id="toast" class="toast"></div>
-    <script src="{{url_for('static', filename='js/app.js')}}"></script>
+    <script defer src="{{url_for('static', filename='js/app.js')}}"></script>
 </body>
 
 </html>
