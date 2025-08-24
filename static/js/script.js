@@ -1,145 +1,200 @@
-const $ = (q, root = document) => root.querySelector(q);
+document.addEventListener('DOMContentLoaded', function () {
+    const uploadBox = document.getElementById('uploadBox');
+    const fileInput = document.getElementById('fileInput');
+    const selectedFile = document.getElementById('selectedFile');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const removeFile = document.getElementById('removeFile');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const originalImage = document.getElementById('originalImage');
+    const heatmapImage = document.getElementById('heatmapImage');
+    const diagnosisResult = document.getElementById('diagnosisResult');
+    const confidenceBar = document.getElementById('confidenceBar');
+    const confidenceValue = document.getElementById('confidenceValue');
+    const confidenceFill = document.getElementById('confidenceFill');
 
-// ===== Theme handling =====
-function setTheme(theme) {
-    var root = document.documentElement;
-    if (theme === 'light') root.setAttribute('data-theme', 'light');
-    else root.removeAttribute('data-theme');
-    localStorage.setItem('bt_theme', theme);
-    var toggle = $('#theme-toggle');
-    if (toggle) toggle.innerHTML = theme === 'light' ? '🌙 Dark' : '☀️ Light';
-}
+    let currentFile = null;
 
-function initTheme() {
-    var saved = localStorage.getItem('bt_theme');
-    setTheme(saved === 'light' ? 'light' : 'dark');
-    var toggle = $('#theme-toggle');
-    if (toggle) {
-        toggle.addEventListener('click', () => {
-            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-            setTheme(isLight ? 'dark' : 'light');
-        });
-    }
-}
-
-// ===== Upload & SPA behavior =====
-function setupUploader() {
-    var form = $('#upload-form');
-    var fileInput = $('#file-input');
-    var dz = $('#dropzone');
-    var preview = $('#preview');
-    var previewImg = $('#preview-img');
-    var submitBtn = $('#submit-btn');
-    var loading = $('#loading');
-
-    if (!form || !fileInput) return;
-
-    // drag-over styling
-    ['dragenter', 'dragover'].forEach(evt =>
-        dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); })
-    );
-    ['dragleave', 'drop'].forEach(evt =>
-        dz.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); })
-    );
-    dz.addEventListener('drop', e => {
-        const f = e.dataTransfer.files?.[0];
-        if (f) { fileInput.files = e.dataTransfer.files; showPreview(f); submitBtn.disabled = false; }
+    // Drag and drop functionality
+    uploadBox.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadBox.classList.add('dragover');
     });
 
-    fileInput.addEventListener('change', e => {
-        const f = e.target.files?.[0];
-        if (f) { showPreview(f); submitBtn.disabled = false; }
+    uploadBox.addEventListener('dragleave', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadBox.classList.remove('dragover');
     });
 
-    function showPreview(file) {
-        if (!file.type.match(/^image\//)) {
-            toast('Please select an image file.');
-            fileInput.value = "";
-            preview.style.display = "none";
-            submitBtn.disabled = true;
+    uploadBox.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadBox.classList.remove('dragover');
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    uploadBox.addEventListener('click', function () {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function () {
+        if (fileInput.files && fileInput.files.length) {
+            handleFile(fileInput.files[0]);
+        }
+    });
+
+    removeFile.addEventListener('click', function () {
+        e.stopPropagation();
+        resetFileInput();
+    });
+
+    analyzeBtn.addEventListener('click', function () {
+        if (!currentFile) {
+            alert('Please select an image first.');
             return;
         }
-        const url = URL.createObjectURL(file);
-        previewImg.src = url;
-        preview.style.display = "block";
-    }
 
-    // Handle submit via fetch (stay on one page)
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!fileInput.files.length) { toast('Choose an image first.'); return; }
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerHTML = '<span class="loading"></span> Analyzing...';
 
-        submitBtn.disabled = true;
-        loading.style.display = 'flex';
+        const formData = new FormData();
+        formData.append('image', currentFile);
 
-        try {
-            const fd = new FormData();
-            fd.append('file', fileInput.files[0]);
-            const res = await fetch('/predict', { method: 'POST', body: fd });
-            const data = await res.json();
+        fetch('/analyze', {
+            method: 'POST',
+            body: formData
+        })
+            .then(async (response) => {
+                let data;
+                try {
+                    data = await response.json();
+                }
+                catch {
+                    throw new Error('Invalid JSON');
+                }
+                if (!response.ok || data.success === false) {
+                    throw new Error(data?.error || `HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
 
-            if (!data.success) {
-                toast(data.error || 'Prediction failed.');
-                return;
-            }
-            renderResult(data);
-            // Smooth scroll to results on small screens
-            $('#result-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } catch (err) {
-            console.error(err);
-            toast('Something went wrong. Try again.');
-        } finally {
-            loading.style.display = 'none';
-            submitBtn.disabled = false;
-        }
+                // Display results
+                originalImage.innerHTML = `<img src="${data.image}" alt="Uploaded MRI">`;
+                heatmapImage.innerHTML = `<img src="${data.heatmap}" alt="Heatmap">`;
+
+                // Display diagnosis with appropriate styling
+                diagnosisResult.innerHTML = `
+                <i class="fas fa-${getDiagnosisIcon(data.diagnosis)}"></i>
+                <p class="${getDiagnosisClass(data.diagnosis)}">${data.diagnosis}</p>`;
+
+                // Display confidence if available
+                if (data.confidence) {
+                    const confidencePercent = Math.round(data.confidence * 100);
+                    confidenceValue.textContent = `${confidencePercent}%`;
+                    confidenceFill.style.width = `${confidencePercent}%`;
+                    confidenceBar.style.display = 'block';
+                }
+
+                analyzeBtn.innerHTML = 'Analysis Complete';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                diagnosisResult.innerHTML = `
+                <i class="fas fa-exclamation-triangle error"></i>
+                <p class="error">An error occurred during analysis. Please try again.</p>`;
+                analyzeBtn.innerHTML = 'Try Again';
+            })
+            .finally(() => {
+                analyzeBtn.disabled = false;
+            });
     });
-}
 
-function renderResult(data) {
-    // Elements
-    const sub = $('#result-sub');
-    const img = $('#result-img');
-    const label = $('#result-label');
-    const table = $('#probs-table');
-    const tbody = $('#probs-body');
-    const dlHeat = $('#download-heatmap');
-    const dlOrig = $('#download-original');
+    function handleFile(file) {
+        if (!file.type.match('image.*')) {
+            alert('Please select an image file.');
+            return;
+        }
 
-    // Fill
-    img.src = data.overlay_path;
-    img.style.display = 'block';
-    label.innerHTML = `<strong>Predicted type:</strong> ${data.label}`;
-    label.style.display = 'block';
-    sub.style.display = 'none';
+        currentFile = file;
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        selectedFile.style.display = 'flex';
+        analyzeBtn.disabled = false;
 
-    // Downloads
-    dlHeat.href = data.overlay_path;
-    dlHeat.download = `heatmap_${(data.original_path.split('/').pop() || 'result')}`;
-    dlOrig.href = data.original_path;
-    dlOrig.download = data.original_path.split('/').pop() || 'original';
-    $('#download-actions').style.display = 'flex';
+        // Preview image
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            originalImage.innerHTML = `<img src="${e.target.result}" alt="Uploaded MRI">`;
+        };
+        reader.readAsDataURL(file);
 
-    // Probs table
-    tbody.innerHTML = '';
-    const entries = Object.entries(data.probs || {});
-    // sort by percent desc
-    entries.sort((a, b) => (b[1] || 0) - (a[1] || 0));
-    for (const [cls, pct] of entries) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${cls}</td><td>${pct}</td>`;
-        tbody.appendChild(tr);
+        // Reset results
+        heatmapImage.innerHTML = `
+            <i class="fas fa-fire"></i>
+            <p>Heatmap will appear here</p>
+        `;
+        diagnosisResult.innerHTML = `
+            <i class="fas fa-stethoscope"></i>
+            <p>Analysis result will appear here</p>
+        `;
+        confidenceBar.style.display = 'none';
     }
-    table.style.display = entries.length ? 'table' : 'none';
-}
 
-// ===== small toast =====
-function toast(msg) {
-    const t = $('#toast'); if (!t) return;
-    t.textContent = msg; t.style.display = 'block';
-    setTimeout(() => t.style.display = 'none', 2400);
-}
+    function resetFileInput() {
+        currentFile = null;
+        fileInput.value = '';
+        fileName.textContent = 'No file selected';
+        fileSize.textContent = '-';
+        selectedFile.style.display = 'none';
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerHTML = 'Analyze Image';
 
-document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    setupUploader();
+        // Reset previews
+        originalImage.innerHTML = `
+            <i class="fas fa-image"></i>
+            <p>Original image will appear here</p>
+        `;
+
+        heatmapImage.innerHTML = `
+            <i class="fas fa-fire"></i>
+            <p>Heatmap will appear here</p>
+        `;
+
+        diagnosisResult.innerHTML = `
+            <i class="fas fa-stethoscope"></i>
+            <p>Analysis result will appear here</p>
+        `;
+
+        confidenceBar.style.display = 'none';
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function getDiagnosisIcon(diagnosis) {
+        if (diagnosis === 'No Tumor') return 'check-circle';
+        if (diagnosis === 'Glioma') return 'exclamation-circle';
+        if (diagnosis === 'Meningioma') return 'exclamation-triangle';
+        if (diagnosis === 'Pituitary') return 'info-circle';
+        return 'stethoscope';
+    }
+
+    function getDiagnosisClass(diagnosis) {
+        if (diagnosis === 'No Tumor') return 'no-tumor';
+        if (diagnosis === 'Glioma') return 'glioma';
+        if (diagnosis === 'Meningioma') return 'meningioma';
+        if (diagnosis === 'Pituitary') return 'pituitary';
+        return '';
+    }
 });

@@ -1,71 +1,67 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Tumor Detection</title>
-    <link rel="stylesheet" href="{{url_for('static', filename='css/style.css')}}">
-</head>
+{% block content %}
+<div class="hero-section">
+    <div class="hero-text">
+        <h2>Discover Brain Tumor Detection</h2>
+        <p>
+            Harnessing the Power of AI for Brain MRI Analysis
+        </p>
+    </div>
+</div>
 
-<body>
-    <h1>Brain Tumor Detection</h1>
-    <div class="spacer"></div>
-    <button id="theme-toggle" class="theme-toggle" type="button">☀️ Light</button>
-
-    <main class="wrap">
-        <!--Left: Uploader-->
-        <section class="card">
-            <h3>Upload MRI</h3>
-            <div class="sub">Drag & drop or choose a PNG/JPG.</div>
-            <form id="upload-form" action="/predict" method="POST" enctype="multipart/form-data">
-                <div id="dropzone" class="dropzone">Drop image here or click "Choose file"</div>
-                <div class="input-row">
-                    <input type="file" id="file-input" name="file" accept="image/*" required>
-                    <button class="btn" id="submit-btn" type="submit" disabled>Predict</button>
-                </div>
-                <div id="loading" class="loading">
-                    <div class="spinner"></div> Uploading & Running
-                </div>
-            </form>
-
-            <div id="preview" class="preview">
-                <img id="preview-img" alt="preview">
+<div class="upload-section">
+    <h2>Upload an MRI Image</h2>
+    <div class="upload-container">
+        <div class="upload-box" id="uploadBox">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p>Drag & Drop your MRI image here</p>
+            <span>or</span>
+            <label for="fileInput" class="browse-btn">Browse Files</label>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+        <div class="selected-file" id="selectedFile">
+            <i class="fas fa-file-image"></i>
+            <div class="file-info">
+                <span class="file-name" id="fileName">No file selected</span>
+                <span class="file-size" id="fileSize">-</span>
             </div>
-        </section>
+            <button class="remove-btn" id="removeFile"><i class="fas fa-times"></i></button>
+        </div>
+        <button class="analyze-btn" id="analyzeBtn" disabled>Analyze Image</button>
+    </div>
+</div>
 
-        <section class="card" id="result-card">
-                <h3>Result Preview</h3>
-                <div class="sub">After you upload, a class prediction and tumor heatmap will appear here.</div>
-                <img id="result-img" class="result-img" style="display: none" alt="heatmap result">
-
-                <div class="label" id="result-label" style="display: none"></div>
-
-                <div class="actions" id="download-actions" style="display: none">
-                    <a class="btn" id="download-heatmap" href="#" download>Download heatmaps</a>
-                    <a class="btn secondary" id="download-original" href="#" download>Download original</a>
+<div class="results-section" id="resultsSection">
+    <h2>Prediction Result</h2>
+    <div class="results-container">
+        <div class="result-card">
+            <h3>Original Image</h3>
+            <div class="image-placeholder" id="originalImage">
+                <i class="fas fa-image"></i>
+                <p>Original image will appear here</p>
+            </div>
+        </div>
+        <div class="result-card">
+            <h3>Heatmap Analysis</h3>
+            <div class="image-placeholder" id="heatmapImage">
+                <i class="fas fa-fire"></i>
+                <p>Heatmap will appear here</p>
+            </div>
+        </div>
+        <div class="result-card diagnosis">
+            <h3>Diagnosis</h3>
+            <div class="diagnosis-result" id="diagnosisResult">
+                <i class="fas fa-stethoscope"></i>
+                <p>Analysis result will appear here</p>
+            </div>
+            <div class="confidence-bar" id="confidenceBar" style="display: none;">
+                <div class="confidence-label">Confidence: <span id="confidenceValue">0%</span></div>
+                <div class="confidence-container">
+                    <div class="confidence-fill" id="confidenceFill"></div>
                 </div>
-
-                <table class="table" id="probs-table" style="display: none" data-sortable>
-                    <thead>
-                    <tr>
-                        <th class="sort">Class</th>
-                        <th class="sort">Probability (%)</th>
-                    </tr>
-                    </thead>
-                    <tbody id="probs-body"></tbody>
-                </table>
-        </section>
-    </main>
-
-    <footer>
-        <div>© {{ 2025 }} Brain Tumor AI</div>
-         <div class="foot-sub">For research/demo purposes only. Not a medical device.</div>
-    </footer>
-
-
-    <div id="toast" class="toast"></div>
-    <script defer src="{{url_for('static', filename='js/app.js')}}"></script>
-</body>
-
-</html>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
