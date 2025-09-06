@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    removeFile.addEventListener('click', function () {
+    removeFile.addEventListener('click', function (e) {
         e.stopPropagation();
         resetFileInput();
     });
@@ -69,24 +69,19 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             body: formData
         })
-            .then(async (response) => {
-                let data;
-                try {
-                    data = await response.json();
-                }
-                catch {
-                    throw new Error('Invalid JSON');
-                }
-                if (!response.ok || data.success === false) {
-                    throw new Error(data?.error || `HTTP ${response.status}`);
-                }
+            .then(response => {
+                if (!response.ok)
+                    throw new Error( `HTTP ${response.status}`);
                 return response.json();
             })
             .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
 
                 // Display results
-                originalImage.innerHTML = `<img src="${data.image}" alt="Uploaded MRI">`;
-                heatmapImage.innerHTML = `<img src="${data.heatmap}" alt="Heatmap">`;
+                originalImage.innerHTML = `<img src="data:image/jpeg;base64,${data.image}" alt="Uploaded MRI">`;
+                heatmapImage.innerHTML = `<img src="data:image/jpeg;base64,${data.heatmap}" alt="Heatmap">`;
 
                 // Display diagnosis with appropriate styling
                 diagnosisResult.innerHTML = `
@@ -107,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.error('Error:', error);
                 diagnosisResult.innerHTML = `
                 <i class="fas fa-exclamation-triangle error"></i>
-                <p class="error">An error occurred during analysis. Please try again.</p>`;
+                <p class="error">${error.message || 'An error occurred during analysis. Please try again.'}</p>`;
                 analyzeBtn.innerHTML = 'Try Again';
             })
             .finally(() => {

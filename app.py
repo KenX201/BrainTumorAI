@@ -1,26 +1,24 @@
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
-import os, uuid
+import os
 import numpy as np
 import cv2
 import base64
-import tensorflow as tf
-from keras.models import load_model, Model
+import traceback
+from keras.models import load_model
 from keras.preprocessing import image
 
 # Flask
 app = Flask(__name__)
 UPLOAD_DIR = 'static/uploads'
-RESULTS_DIR = 'static/results'
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(RESULTS_DIR, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_DIR
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB max file size
 
 # Config
 model_path = 'model/brain_tumor_densenet_adam_model.h5'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-class_names = ['No Tumor', 'Glioma', 'Meningioma', 'Pituitary']
-input_sizes = (224,224)
-enable_cam = True
+class_names = ['No Tumor', 'Pituitary', 'Meningioma', 'Glioma']
+input_sizes = (150,150)
 
 # Load model
 try:
@@ -34,7 +32,7 @@ except Exception as e:
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def preprocess_image(img_path, input_sizes  = (224,224)):
+def preprocess_image(img_path, input_sizes=(150, 150)):
     img = image.load_img(img_path, target_size=input_sizes)
 
     # Preprocess image
@@ -70,19 +68,32 @@ def predict_tumor(img_path):
 def generate_heatmap(img_path):
     """
     Generate a heatmap visualization for the image
-    This is a simplified version - you might want to implement
-    Grad-CAM or another visualization technique specific to your model
+    
     """
-    img = cv2.imread(img_path)
-    img = cv2.resize(img, (300, 300))
+    try:
+        img = cv2.imread(img_path)
+        if img is None:
+            raise ValueError("Could not read image file")
+        
+        img = cv2.resize(img, (300, 300))
     
-    # Create a simple heatmap based on the prediction
-    # Replace this with your actual model's heatmap generation
-    heatmap = cv2.applyColorMap(img, cv2.COLORMAP_JET)
+        # Create a simple heatmap based on the prediction
+        # Replace this with your actual model's heatmap generation
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
     
-    # Convert to base64
-    _, buffer = cv2.imencode('.jpg', heatmap)
-    return base64.b64encode(buffer).decode('utf-8')
+        # Convert to base64
+        _, buffer = cv2.imencode('.jpg', heatmap)
+        return base64.b64encode(buffer).decode('utf-8')
+    
+    except Exception as e:
+        print(f"Heatmap generation error: {e}")
+        # Return a placeholder image
+        placeholder = np.zeros((300, 300, 3), dtype=np.uint8)
+        cv2.putText(placeholder, "Heatmap Error", (50, 150), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        _, buffer = cv2.imencode('.jpg', placeholder)
+        return base64.b64encode(buffer).decode('utf-8')
 
 @app.route('/')
 def index():
@@ -91,47 +102,64 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image uploaded'})
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image uploaded'})
     
-    file = request.files['image']
+        file = request.files['image']
     
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'})
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'})
     
-    if file and allowed_file(file.filename):
-        # Save the uploaded file
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+        if file and allowed_file(file.filename):
+            # Save the uploaded file
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
         
-        # Get tumor diagnosis
-        diagnosis, confidence = predict_tumor(filepath)
+            # Get tumor diagnosis
+            diagnosis, confidence = predict_tumor(filepath)
+
+            # Check if prediction failed
+            if diagnosis.startswith('Error: '):
+                return jsonify({'error': diagnosis})
         
-        # Generate heatmap
-        heatmap_base64 = generate_heatmap(filepath, diagnosis)
+            # Generate heatmap
+            heatmap_base64 = generate_heatmap(filepath)
         
-        # Process the image for display
-        img = cv2.imread(filepath)
-        img = cv2.resize(img, (300, 300))
-        _, buffer = cv2.imencode('.jpg', img)
-        img_base64 = base64.b64encode(buffer).decode('utf-8')
+            # Process the image for display
+            img = cv2.imread(filepath)
+            if img is None:
+                # Create a placeholder image if loading fails
+                img = np.zeros((300, 300, 3), dtype=np.uint8)
+                cv2.putText(img, "Image Error", (50, 150), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            else:
+                img = cv2.resize(img, (300, 300))
+
+            _, buffer = cv2.imencode('.jpg', img)
+            img_base64 = base64.b64encode(buffer).decode('utf-8')
         
-        # Prepare response
-        response = {
-            'diagnosis': diagnosis,
-            'confidence': float(confidence) if confidence else 0,
-            'image': img_base64,
-            'heatmap': heatmap_base64
-        }
+            # Prepare response
+            response = {
+                'diagnosis': diagnosis,
+                'confidence': float(confidence) if confidence else 0,
+                'image': img_base64,
+                'heatmap': heatmap_base64
+            }
         
-        return jsonify(response)
+            return jsonify(response)
     
-    return jsonify({'error': 'Invalid file format'})
+        return jsonify({'error': 'Invalid file format'})
+    
+    except Exception as e:
+        print(f"Analysis error: {e}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Server error: {str(e)}'})
     
 if __name__ == '__main__':
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    os.makedirs('models', exist_ok=True)
+    os.makedirs('model', exist_ok=True)
     os.makedirs('static/css', exist_ok=True)
     os.makedirs('static/js', exist_ok=True)
     os.makedirs('static/images', exist_ok=True)
